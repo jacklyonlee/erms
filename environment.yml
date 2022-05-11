@@ -1,0 +1,8 @@
+name: erms
+channels:
+- conda-forge
+- pytorch
+dependencies:
+- cudatoolkit=11.1
+- pytorch::pytorch=1.8.1
+- tqdm
