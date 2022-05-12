@@ -92,22 +92,3 @@ class ModelNet40(Dataset):
 
     def __len__(self):
         return self.data.shape[0]
-
-
-if __name__ == "__main__":
-    train = ModelNet40(1024)
-    test = ModelNet40(1024, "test")
-    from torch.utils.data import DataLoader
-
-    train_loader = DataLoader(
-        ModelNet40(partition="train", num_points=1024),
-        num_workers=4,
-        batch_size=32,
-        shuffle=True,
-        drop_last=True,
-    )
-
-    train_set = ModelNet40(partition="train", num_points=1024)
-    test_set = ModelNet40(partition="test", num_points=1024)
-    print(f"train_set size {train_set.__len__()}")
-    print(f"test_set size {test_set.__len__()}")

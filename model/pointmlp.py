@@ -422,31 +422,3 @@ def pointMLP(num_classes=40, **kwargs) -> Model:
         reducers=[2, 2, 2, 2],
         **kwargs,
     )
-
-
-def pointMLPElite(num_classes=40, **kwargs) -> Model:
-    return Model(
-        points=1024,
-        class_num=num_classes,
-        embed_dim=32,
-        groups=1,
-        res_expansion=0.25,
-        activation="relu",
-        bias=False,
-        use_xyz=False,
-        normalize="anchor",
-        dim_expansion=[2, 2, 2, 1],
-        pre_blocks=[1, 1, 2, 1],
-        pos_blocks=[1, 1, 2, 1],
-        k_neighbors=[24, 24, 24, 24],
-        reducers=[2, 2, 2, 2],
-        **kwargs,
-    )
-
-
-if __name__ == "__main__":
-    data = torch.rand(2, 3, 1024).cuda()
-    print("===> testing pointMLP ...")
-    model = pointMLP().cuda()
-    out = model(data)
-    print(out.shape)
