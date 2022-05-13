@@ -300,7 +300,7 @@ class PosExtraction(nn.Module):
         return self.operation(x)
 
 
-class Model(nn.Module):
+class _PointMLP(nn.Module):
     def __init__(
         self,
         points=1024,
@@ -386,8 +386,8 @@ class Model(nn.Module):
             nn.Linear(256, self.class_num),
         )
 
-    def forward(self, x):
-        xyz = x.permute(0, 2, 1)
+    def forward(self, xyz):
+        x = xyz.permute(0, 2, 1)
         batch_size, _, _ = x.size()
         x = self.embedding(x)  # B,D,N
         for i in range(self.stages):
@@ -404,8 +404,8 @@ class Model(nn.Module):
         return x
 
 
-def pointMLP(num_classes=40, **kwargs) -> Model:
-    return Model(
+def PointMLP(num_classes=40, **kwargs):
+    return _PointMLP(
         points=1024,
         class_num=num_classes,
         embed_dim=64,
