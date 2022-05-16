@@ -32,7 +32,6 @@ def load_data(partition):
             DATA_DIR, "modelnet40_ply_hdf5_2048", "ply_data_%s*.h5" % partition
         )
     ):
-        # print(f"h5_name: {h5_name}")
         f = h5py.File(h5_name, "r")
         data = f["data"][:].astype("float32")
         label = f["label"][:].astype("int64")
@@ -46,10 +45,8 @@ def load_data(partition):
 
 def random_point_dropout(pc, max_dropout_ratio=0.875):
     """batch_pc: BxNx3"""
-    # for b in range(batch_pc.shape[0]):
     dropout_ratio = np.random.random() * max_dropout_ratio  # 0~0.875
     drop_idx = np.where(np.random.random(pc.shape[0]) <= dropout_ratio)[0]
-    # print ('use random drop', len(drop_idx))
 
     if len(drop_idx) > 0:
         pc[drop_idx, :] = pc[0, :]  # set to the first point

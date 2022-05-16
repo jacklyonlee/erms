@@ -1,22 +1,15 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.colors import ListedColormap
+from matplotlib.colors import LinearSegmentedColormap
 from mpl_toolkits.mplot3d import Axes3D
 
 
-def plot_attribution(x, mask, filename, threshold=90):
-    c = np.linalg.norm(mask, axis=1)
-    c = (c > np.percentile(c, threshold)).astype(int)
-    fig = plt.figure(figsize=(15, 15))
+def _create_fig(lim=0.8):
+    fig = plt.figure(figsize=(10, 10))
     ax = plt.gca(projection=Axes3D.name)
-    ax.scatter(
-        x[:, 2],
-        x[:, 0],
-        x[:, 1],
-        s=100,
-        c=c,
-        cmap=ListedColormap(["white", "red"]),
-    )
+    ax.set_xlim(-lim, lim)
+    ax.set_ylim(-lim, lim)
+    ax.set_zlim(-lim, lim)
     ax.set_xlabel("z")
     ax.set_ylabel("x")
     ax.set_zlabel("y")
@@ -25,9 +18,37 @@ def plot_attribution(x, mask, filename, threshold=90):
     ax.w_zaxis.set_pane_color((0.0, 0.0, 0.0, 0.0))
     fig.set_facecolor("black")
     ax.set_facecolor("black")
-    ax.grid(False)
+    return fig, ax
+
+
+def _save_fig(filename):
     plt.savefig(
         f"{filename}.png",
         bbox_inches="tight",
     )
     plt.close()
+
+
+def plot_pc(x, filename):
+    _, ax = _create_fig()
+    ax.scatter(
+        x[:, 2],
+        x[:, 0],
+        x[:, 1],
+        s=30,
+        c="white",
+    )
+    _save_fig(filename)
+
+
+def plot_attribution(x, mask, filename):
+    _, ax = _create_fig()
+    ax.scatter(
+        x[:, 2],
+        x[:, 0],
+        x[:, 1],
+        s=30,
+        c=np.linalg.norm(mask, axis=1),
+        cmap=LinearSegmentedColormap.from_list("heat", ["white", "red"]),
+    )
+    _save_fig(filename)

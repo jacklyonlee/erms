@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from data import ModelNet40
 from model.pointmlp import PointMLP
-from plot import plot_attribution
+from plot import plot_attribution, plot_pc
 from utils import compute_integrated_gradients, compute_saliency_map
 
 
@@ -58,14 +58,71 @@ def _get_attributions(net, samples, func, filename):
         )
 
 
+def _get_baseline(name):
+    return {
+        "zeros": lambda: torch.zeros((1, 1024, 3)).cuda(),
+        "randn": lambda: torch.randn(1, 1024, 3).cuda() / 4,
+        "sphere": (
+            lambda: (
+                (x := torch.randn(1, 1024, 3))
+                / x.norm(
+                    dim=-1,
+                    keepdim=True,
+                )
+            ).cuda()
+            / 2
+        ),
+    }[name]()
+
+
 net = _get_pretrained_model()
 loader = _get_loader()
 classes_of_interest = ("airplane", "chair", "table")
 samples = _get_postive_samples(net, loader, classes_of_interest)
-_get_attributions(net, samples, compute_saliency_map, "./out/saliency")
+
+
+plot_pc(
+    _get_baseline("zeros").cpu().numpy().squeeze(),
+    "./out/baseline-zeros",
+)
+plot_pc(
+    _get_baseline("randn").cpu().numpy().squeeze(),
+    "./out/baseline-randn",
+)
+plot_pc(
+    _get_baseline("sphere").cpu().numpy().squeeze(),
+    "./out/baseline-sphere",
+)
 _get_attributions(
     net,
     samples,
-    partial(compute_integrated_gradients, baseline=torch.zeros((1, 1024, 3)).cuda()),
+    compute_saliency_map,
+    "./out/saliency",
+)
+_get_attributions(
+    net,
+    samples,
+    partial(
+        compute_integrated_gradients,
+        baseline=_get_baseline("zeros"),
+    ),
     "./out/ig-zeros",
+)
+_get_attributions(
+    net,
+    samples,
+    partial(
+        compute_integrated_gradients,
+        baseline=_get_baseline("randn"),
+    ),
+    "./out/ig-randn",
+)
+_get_attributions(
+    net,
+    samples,
+    partial(
+        compute_integrated_gradients,
+        baseline=_get_baseline("sphere"),
+    ),
+    "./out/ig-sphere",
 )

@@ -25,7 +25,3 @@ def compute_integrated_gradients(net, x, baseline):
         baseline,
         resolution=30,
     ).attributions(x)
-
-
-def compute_class_saliency_map(net, x_shape=(1024, 3), n_classes=40):
-    pass
