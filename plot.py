@@ -29,26 +29,16 @@ def _save_fig(filename):
     plt.close()
 
 
-def plot_pc(x, filename):
+def plot_pc(x, filename, mask=None):
     _, ax = _create_fig()
     ax.scatter(
         x[:, 2],
         x[:, 0],
         x[:, 1],
         s=30,
-        c="white",
-    )
-    _save_fig(filename)
-
-
-def plot_attribution(x, mask, filename):
-    _, ax = _create_fig()
-    ax.scatter(
-        x[:, 2],
-        x[:, 0],
-        x[:, 1],
-        s=30,
-        c=np.linalg.norm(mask, axis=1),
-        cmap=LinearSegmentedColormap.from_list("heat", ["white", "red"]),
+        c="white" if mask is None else np.linalg.norm(mask, axis=1),
+        cmap=None
+        if mask is None
+        else LinearSegmentedColormap.from_list("heat", ["white", "red"]),
     )
     _save_fig(filename)
