@@ -54,6 +54,7 @@ def _get_baseline(name):
     return {
         "zeros": lambda: torch.zeros((1, 1024, 3)),
         "randn": lambda: torch.randn(1, 1024, 3) / 4,
+        "uniform": lambda: (torch.rand(1, 1024, 3) - 0.5) / 2,
         "sphere": (
             lambda: (
                 (x := torch.randn(1, 1024, 3))
@@ -77,12 +78,14 @@ def _get_attributions(net, samples, func, filename):
         )
 
 
-def _get_class_attributions(net, classes, filename):
-    for c in classes:
+def _get_class_attributions(net, samples, filename):
+    for i, (x, _, c) in enumerate(tqdm(samples)):
         xs = erms.compute_class_saliency_map(
-            net, ModelNet40.classes.index(c), _get_baseline("sphere")
+            net,
+            ModelNet40.classes.index(c),
+            x.cuda(),
         )
-        animate_pc(xs, f"{filename}-{c}")
+        animate_pc(xs, f"{filename}-{c}-{i}")
 
 
 def _get_attacks(net, samples, func, filename):
@@ -144,10 +147,10 @@ def main():
         erms.compute_saliency_map,
         "./out/saliency",
     )
-    _get_class_attributions(net, ("airplane", "table"), "./out/class_saliency")
+    _get_class_attributions(net, samples, "./out/class_saliency")
 
     # compute & save integrated gradients
-    for name in ("zeros", "randn", "sphere"):
+    for name in ("zeros", "randn", "uniform", "sphere"):
         plot_pc(
             _get_baseline(name).cpu().numpy().squeeze(),
             f"./out/baseline-{name}",
