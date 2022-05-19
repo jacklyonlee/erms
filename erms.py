@@ -2,6 +2,7 @@ import logging
 
 import torch
 import torch.nn.functional as F
+from tqdm import tqdm
 from trulens.nn.attribution import InputAttribution, IntegratedGradients
 from trulens.nn.models import get_model_wrapper
 from trulens.utils.tru_logger import get_logger
@@ -27,6 +28,21 @@ def compute_integrated_gradients(net, x, baseline):
         baseline,
         resolution=30,
     ).attributions(x)
+
+
+def compute_class_saliency_map(net, y_idx, baseline, n_steps=100):
+    x, xs = baseline.clone().detach(), []
+    x.requires_grad = True
+    opt = torch.optim.Adam([x], lr=5e-3, weight_decay=1e-5)
+    with tqdm(range(n_steps)) as t:
+        for _ in t:
+            loss = -torch.mean(net(x)[:, y_idx])
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+            xs.append(x.clone().detach().cpu().numpy().squeeze())
+            t.set_description(f"L:{loss.item():.3f}|N:{x.norm().item():.3f}")
+    return xs
 
 
 def compute_gn_attack(net, x, _, std=1e-2):

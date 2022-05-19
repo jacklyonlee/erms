@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.animation import FuncAnimation, PillowWriter
 from matplotlib.colors import LinearSegmentedColormap
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -42,3 +43,20 @@ def plot_pc(x, filename, mask=None):
         else LinearSegmentedColormap.from_list("heat", ["white", "red"]),
     )
     _save_fig(filename)
+
+
+def animate_pc(xs, filename):
+    fig, ax = _create_fig()
+
+    def update(x):
+        ax.clear()
+        return ax.scatter(
+            x[:, 2],
+            x[:, 0],
+            x[:, 1],
+            s=30,
+            c="white",
+        )
+
+    ani = FuncAnimation(fig, update, frames=xs, repeat=True)
+    ani.save(f"{filename}.gif", writer=PillowWriter(fps=25))

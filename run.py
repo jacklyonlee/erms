@@ -9,7 +9,7 @@ from tqdm import tqdm
 import erms
 from data import ModelNet40
 from model.pointmlp import PointMLP
-from plot import plot_pc
+from plot import animate_pc, plot_pc
 
 
 def _get_pretrained_model():
@@ -30,7 +30,7 @@ def _get_loader():
 
 
 @torch.no_grad()
-def _get_postive_samples(net, loader, include_classes, N=32):
+def _get_postive_samples(net, loader, include_classes, N=16):
     samples = []
     for x, y in loader:
         x, y = x.cuda(), y.squeeze().cuda()
@@ -50,16 +50,6 @@ def _get_postive_samples(net, loader, include_classes, N=32):
                     return samples
 
 
-def _get_attributions(net, samples, func, filename):
-    for i, (x, _, c) in enumerate(tqdm(samples)):
-        a = func(net, x.cuda()).cpu()
-        plot_pc(
-            x.numpy().squeeze(),
-            f"{filename}-{c}-{i}",
-            mask=a.numpy().squeeze(),
-        )
-
-
 def _get_baseline(name):
     return {
         "zeros": lambda: torch.zeros((1, 1024, 3)),
@@ -72,9 +62,27 @@ def _get_baseline(name):
                     keepdim=True,
                 )
             )
-            / 2
+            / 4
         ),
     }[name]().cuda()
+
+
+def _get_attributions(net, samples, func, filename):
+    for i, (x, _, c) in enumerate(tqdm(samples)):
+        a = func(net, x.cuda()).cpu()
+        plot_pc(
+            x.numpy().squeeze(),
+            f"{filename}-{c}-{i}",
+            mask=a.numpy().squeeze(),
+        )
+
+
+def _get_class_attributions(net, classes, filename):
+    for c in classes:
+        xs = erms.compute_class_saliency_map(
+            net, ModelNet40.classes.index(c), _get_baseline("sphere")
+        )
+        animate_pc(xs, f"{filename}-{c}")
 
 
 def _get_attacks(net, samples, func, filename):
@@ -98,7 +106,6 @@ def _get_attacks(net, samples, func, filename):
 def _eval_attacks(net, loader, func):
     Y, P, P_adv = [], [], []
     norms = ((0, []), (1, []), (2, []), (np.inf, []))
-    N = 0
     for x, y in tqdm(loader):
         x, y = x.cuda(), y.cuda().squeeze()
         x_adv = func(net, x, y)
@@ -112,9 +119,6 @@ def _eval_attacks(net, loader, func):
             d = x_adv[f] - x[f]
             for ord_, n in norms:
                 n.append(d.norm(p=ord_, dim=(1, 2)).cpu())
-        N += 1
-        if N > 5:
-            break
     Y = np.concatenate(Y)
     P = np.concatenate(P)
     P_adv = np.concatenate(P_adv)
@@ -140,6 +144,7 @@ def main():
         erms.compute_saliency_map,
         "./out/saliency",
     )
+    _get_class_attributions(net, ("airplane", "table"), "./out/class_saliency")
 
     # compute & save integrated gradients
     for name in ("zeros", "randn", "sphere"):
