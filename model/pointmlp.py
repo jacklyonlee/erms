@@ -4,23 +4,6 @@ import torch.nn.functional as F
 from pointnet2_ops import pointnet2_utils
 
 
-def get_activation(activation):
-    if activation.lower() == "gelu":
-        return nn.GELU()
-    elif activation.lower() == "rrelu":
-        return nn.RReLU(inplace=True)
-    elif activation.lower() == "selu":
-        return nn.SELU(inplace=True)
-    elif activation.lower() == "silu":
-        return nn.SiLU(inplace=True)
-    elif activation.lower() == "hardswish":
-        return nn.Hardswish(inplace=True)
-    elif activation.lower() == "leakyrelu":
-        return nn.LeakyReLU(inplace=True)
-    else:
-        return nn.ReLU(inplace=True)
-
-
 def square_distance(src, dst):
     B, N, _ = src.shape
     _, M, _ = dst.shape
@@ -81,13 +64,25 @@ def query_ball_point(radius, nsample, xyz, new_xyz):
 
 def knn_point(nsample, xyz, new_xyz):
     sqrdists = square_distance(new_xyz, xyz)
-    _, group_idx = torch.topk(sqrdists, nsample, dim=-1, largest=False, sorted=False)
+    _, group_idx = torch.topk(
+        sqrdists,
+        nsample,
+        dim=-1,
+        largest=False,
+        sorted=False,
+    )
     return group_idx
 
 
 class LocalGrouper(nn.Module):
     def __init__(
-        self, channel, groups, kneighbors, use_xyz=True, normalize="center", **kwargs
+        self,
+        channel,
+        groups,
+        kneighbors,
+        use_xyz=True,
+        normalize="center",
+        **kwargs,
     ):
         super().__init__()
         self.groups = groups
@@ -154,10 +149,14 @@ class LocalGrouper(nn.Module):
 
 class ConvBNReLU1D(nn.Module):
     def __init__(
-        self, in_channels, out_channels, kernel_size=1, bias=True, activation="relu"
+        self,
+        in_channels,
+        out_channels,
+        kernel_size=1,
+        bias=True,
     ):
         super().__init__()
-        self.act = get_activation(activation)
+        self.act = nn.ReLU(inplace=True)
         self.net = nn.Sequential(
             nn.Conv1d(
                 in_channels=in_channels,
@@ -181,10 +180,9 @@ class ConvBNReLURes1D(nn.Module):
         groups=1,
         res_expansion=1.0,
         bias=True,
-        activation="relu",
     ):
         super().__init__()
-        self.act = get_activation(activation)
+        self.act = nn.ReLU(inplace=True)
         self.net1 = nn.Sequential(
             nn.Conv1d(
                 in_channels=channel,
@@ -239,13 +237,14 @@ class PreExtraction(nn.Module):
         groups=1,
         res_expansion=1,
         bias=True,
-        activation="relu",
         use_xyz=True,
     ):
         super().__init__()
         in_channels = 3 + 2 * channels if use_xyz else 2 * channels
         self.transfer = ConvBNReLU1D(
-            in_channels, out_channels, bias=bias, activation=activation
+            in_channels,
+            out_channels,
+            bias=bias,
         )
         operation = []
         for _ in range(blocks):
@@ -255,7 +254,6 @@ class PreExtraction(nn.Module):
                     groups=groups,
                     res_expansion=res_expansion,
                     bias=bias,
-                    activation=activation,
                 )
             )
         self.operation = nn.Sequential(*operation)
@@ -280,7 +278,6 @@ class PosExtraction(nn.Module):
         groups=1,
         res_expansion=1,
         bias=True,
-        activation="relu",
     ):
         super().__init__()
         operation = []
@@ -291,7 +288,6 @@ class PosExtraction(nn.Module):
                     groups=groups,
                     res_expansion=res_expansion,
                     bias=bias,
-                    activation=activation,
                 )
             )
         self.operation = nn.Sequential(*operation)
@@ -308,7 +304,6 @@ class _PointMLP(nn.Module):
         embed_dim=64,
         groups=1,
         res_expansion=1.0,
-        activation="relu",
         bias=True,
         use_xyz=True,
         normalize="center",
@@ -323,7 +318,11 @@ class _PointMLP(nn.Module):
         self.stages = len(pre_blocks)
         self.class_num = class_num
         self.points = points
-        self.embedding = ConvBNReLU1D(3, embed_dim, bias=bias, activation=activation)
+        self.embedding = ConvBNReLU1D(
+            3,
+            embed_dim,
+            bias=bias,
+        )
         assert (
             len(pre_blocks)
             == len(k_neighbors)
@@ -356,7 +355,6 @@ class _PointMLP(nn.Module):
                 groups=groups,
                 res_expansion=res_expansion,
                 bias=bias,
-                activation=activation,
                 use_xyz=use_xyz,
             )
             self.pre_blocks_list.append(pre_block_module)
@@ -367,13 +365,11 @@ class _PointMLP(nn.Module):
                 groups=groups,
                 res_expansion=res_expansion,
                 bias=bias,
-                activation=activation,
             )
             self.pos_blocks_list.append(pos_block_module)
-
             last_channel = out_channel
 
-        self.act = get_activation(activation)
+        self.act = nn.ReLU(inplace=True)
         self.classifier = nn.Sequential(
             nn.Linear(last_channel, 512),
             nn.BatchNorm1d(512),
@@ -411,14 +407,13 @@ def PointMLP(num_classes=40, **kwargs):
         embed_dim=64,
         groups=1,
         res_expansion=1.0,
-        activation="relu",
         bias=False,
         use_xyz=False,
         normalize="anchor",
-        dim_expansion=[2, 2, 2, 2],
-        pre_blocks=[2, 2, 2, 2],
-        pos_blocks=[2, 2, 2, 2],
-        k_neighbors=[24, 24, 24, 24],
-        reducers=[2, 2, 2, 2],
+        dim_expansion=(2, 2, 2, 2),
+        pre_blocks=(2, 2, 2, 2),
+        pos_blocks=(2, 2, 2, 2),
+        k_neighbors=(24, 24, 24, 24),
+        reducers=(2, 2, 2, 2),
         **kwargs,
     )

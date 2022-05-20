@@ -13,17 +13,17 @@ from plot import animate_pc, plot_pc
 
 
 def _get_pretrained_model():
-    ckpt = torch.load("pointmlp.pth")
+    ckpt = torch.load("out/pointmlp.pth")
     net = PointMLP().cuda()
     net.load_state_dict(ckpt)
     return net.eval()
 
 
-def _get_loader():
+def _get_loader(batch_size=16):
     return DataLoader(
         ModelNet40(partition="test", num_points=1024),
-        num_workers=1,
-        batch_size=16,
+        num_workers=2,
+        batch_size=batch_size,
         shuffle=False,
         drop_last=False,
     )
@@ -50,14 +50,14 @@ def _get_postive_samples(net, loader, include_classes, N=16):
                     return samples
 
 
-def _get_baseline(name):
+def _get_baseline(name, shape=(1, 1024, 3)):
     return {
-        "zeros": lambda: torch.zeros((1, 1024, 3)),
-        "randn": lambda: torch.randn(1, 1024, 3) / 4,
-        "uniform": lambda: (torch.rand(1, 1024, 3) - 0.5) / 2,
+        "zeros": lambda: torch.zeros(shape),
+        "randn": lambda: torch.randn(*shape) / 4,
+        "uniform": lambda: (torch.rand(*shape) - 0.5) / 2,
         "sphere": (
             lambda: (
-                (x := torch.randn(1, 1024, 3))
+                (x := torch.randn(*shape))
                 / x.norm(
                     dim=-1,
                     keepdim=True,
@@ -78,14 +78,14 @@ def _get_attributions(net, samples, func, filename):
         )
 
 
-def _get_class_attributions(net, samples, filename):
-    for i, (x, _, c) in enumerate(tqdm(samples)):
+def _get_class_attributions(net, classes, filename):
+    for c in classes:
         xs = erms.compute_class_saliency_map(
             net,
             ModelNet40.classes.index(c),
-            x.cuda(),
+            _get_baseline("sphere"),
         )
-        animate_pc(xs, f"{filename}-{c}-{i}")
+        animate_pc(xs, f"{filename}-{c}")
 
 
 def _get_attacks(net, samples, func, filename):
@@ -133,7 +133,7 @@ def _eval_attacks(net, loader, func):
 
 def main():
     net = _get_pretrained_model()
-    loader = _get_loader()
+    loader = _get_loader(batch_size=16)
     samples = _get_postive_samples(
         net,
         loader,
@@ -147,7 +147,11 @@ def main():
         erms.compute_saliency_map,
         "./out/saliency",
     )
-    _get_class_attributions(net, samples, "./out/class_saliency")
+    _get_class_attributions(
+        net,
+        ("airplane", "chair", "table"),
+        "./out/class-saliency",
+    )
 
     # compute & save integrated gradients
     for name in ("zeros", "randn", "uniform", "sphere"):
@@ -169,11 +173,22 @@ def main():
     for name, attack in (
         ("gn", erms.compute_gn_attack),
         ("fgsm", erms.compute_fgsm_attack),
-        ("pgd-l2", erms.compute_pgd_l2_attack),
-        ("pgd-linf", erms.compute_pgd_linf_attack),
+        *(
+            (f"{name}-alpha-{alpha}", partial(attack, alpha=alpha))
+            for name, attack in (
+                ("pgd-l1", erms.compute_pgd_l1_attack),
+                ("pgd-l2", erms.compute_pgd_l2_attack),
+                ("pgd-linf", erms.compute_pgd_linf_attack),
+            )
+            for alpha in (1e-2, 1e-1, 1e-0)
+        ),
     ):
         _get_attacks(net, samples, attack, f"./out/adv-{name}")
-        acc, acc_adv, n_0, n_1, n_2, n_inf = _eval_attacks(net, loader, attack)
+        acc, acc_adv, n_0, n_1, n_2, n_inf = _eval_attacks(
+            net,
+            loader,
+            attack,
+        )
         print(
             f"{name} | acc: {acc:.3f}, acc_adv: {acc_adv:.3f}, "
             f"L_0: {n_0:.3f}, L_1: {n_1:.3f}, "

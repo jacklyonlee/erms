@@ -6,3 +6,11 @@ dependencies:
 - cudatoolkit=11.1
 - pytorch::pytorch=1.8.1
 - tqdm
+- numpy
+- scikit-learn
+- matplotlib
+- gdown
+- pip
+- pip:
+  - trulens
+  - model/pointnet2_ops_lib/.
