@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from pointnet2_ops import pointnet2_utils
+
+from .utils import furthest_point_sample
 
 
 def square_distance(src, dst):
@@ -106,9 +107,7 @@ class LocalGrouper(nn.Module):
         S = self.groups
         xyz = xyz.contiguous()  # xyz [btach, points, xyz]
 
-        fps_idx = pointnet2_utils.furthest_point_sample(
-            xyz, self.groups
-        ).long()  # [B, npoint]
+        fps_idx = furthest_point_sample(xyz, self.groups).long()  # [B, npoint]
         new_xyz = index_points(xyz, fps_idx)  # [B, npoint, 3]
         new_points = index_points(points, fps_idx)  # [B, npoint, d]
 
@@ -259,14 +258,13 @@ class PreExtraction(nn.Module):
         self.operation = nn.Sequential(*operation)
 
     def forward(self, x):
-        b, n, s, d = x.size()  # torch.Size([32, 512, 32, 6])
+        B, N, S, D = x.size()  # torch.Size([32, 512, 32, 6])
         x = x.permute(0, 1, 3, 2)
-        x = x.reshape(-1, d, s)
+        x = x.reshape(-1, D, S)
         x = self.transfer(x)
-        batch_size, _, _ = x.size()
         x = self.operation(x)  # [b, d, k]
-        x = F.adaptive_max_pool1d(x, 1).view(batch_size, -1)
-        x = x.reshape(b, n, -1).permute(0, 2, 1)
+        x = F.adaptive_max_pool1d(x, 1).view(B, -1)
+        x = x.reshape(B, N, -1).permute(0, 2, 1)
         return x
 
 

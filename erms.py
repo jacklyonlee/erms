@@ -96,7 +96,7 @@ def compute_pgd_l1_attack(
     n_steps=10,
 ):
     def clip(d):
-        N, P, C = d.shape
+        B, N, C = d.shape
         d = d.view(N, -1)
         mask = (torch.norm(d, p=1, dim=1) < eps).float().unsqueeze(1)
         mu, _ = torch.sort(torch.abs(d), dim=1, descending=True)
@@ -106,7 +106,7 @@ def compute_pgd_l1_attack(
         theta = (cumsum[torch.arange(d.shape[0]), rho.cpu() - 1] - eps) / rho
         proj = (torch.abs(d) - theta.unsqueeze(1)).clamp(min=0)
         d = mask * d + (1 - mask) * proj * torch.sign(d)
-        return d.view(N, P, C)
+        return d.view(B, N, C)
 
     return _compute_pgd_attack(net, x, y, alpha, n_steps, clip)
 

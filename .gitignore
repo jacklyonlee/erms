@@ -2,8 +2,6 @@
 __pycache__/
 *.py[cod]
 *$py.class
-*.egg-info/
-build/
 
 # Swap
 [._]*.s[a-v][a-z]
@@ -15,4 +13,3 @@ build/
 # Dataset / Generated output
 data/
 out/
-*.pth
