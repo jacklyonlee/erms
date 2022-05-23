@@ -97,11 +97,11 @@ def _get_attacks(net, samples, func, filename):
         if p_adv != y:
             plot_pc(
                 x.cpu().numpy().squeeze(),
-                f"{filename}-{c}-{i}-x",
+                f"{filename}-{c}-{i}-org",
             )
             plot_pc(
                 x_adv.cpu().numpy().squeeze(),
-                f"{filename}-{c}-{i}-x_adv",
+                f"{filename}-{c}-{i}-adv",
                 mask=(x_adv - x).cpu().numpy().squeeze(),
             )
 
@@ -128,7 +128,7 @@ def _eval_attacks(net, loader, func):
     acc = metrics.accuracy_score(Y, P) * 100
     acc_adv = metrics.accuracy_score(Y, P_adv) * 100
     norms = (torch.cat(n).mean().item() for _, n in norms)
-    return (acc, acc_adv, *norms)
+    return acc, acc_adv, *norms
 
 
 def main():
@@ -183,7 +183,7 @@ def main():
             for alpha in (1e-2, 1e-1, 1e-0)
         ),
     ):
-        _get_attacks(net, samples, attack, f"./out/adv-{name}")
+        _get_attacks(net, samples, attack, f"./out/{name}")
         acc, acc_adv, n_0, n_1, n_2, n_inf = _eval_attacks(
             net,
             loader,
