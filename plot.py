@@ -37,10 +37,12 @@ def plot_pc(x, filename, mask=None):
         x[:, 0],
         x[:, 1],
         s=30,
-        c="white" if mask is None else np.linalg.norm(mask, axis=1),
-        cmap=None
-        if mask is None
-        else LinearSegmentedColormap.from_list("heat", ["white", "red"]),
+        c=("white" if mask is None else np.linalg.norm(mask, axis=1)),
+        cmap=(
+            None
+            if mask is None
+            else LinearSegmentedColormap.from_list("heat", ["white", "red"])
+        ),
     )
     _save_fig(filename)
 

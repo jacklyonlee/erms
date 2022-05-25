@@ -78,9 +78,9 @@ def _get_attributions(net, samples, func, filename):
         )
 
 
-def _get_class_attributions(net, classes, filename):
+def _get_class_models(net, classes, filename):
     for c in classes:
-        xs = erms.compute_class_saliency_map(
+        xs = erms.compute_class_model(
             net,
             ModelNet40.classes.index(c),
             _get_baseline("sphere"),
@@ -144,13 +144,13 @@ def main():
     _get_attributions(
         net,
         samples,
-        erms.compute_saliency_map,
+        erms.compute_class_saliency,
         "./out/saliency",
     )
-    _get_class_attributions(
+    _get_class_models(
         net,
         ("airplane", "chair", "table"),
-        "./out/class-saliency",
+        "./out/class-model",
     )
 
     # compute & save integrated gradients
@@ -180,7 +180,7 @@ def main():
                 ("pgd-l2", erms.compute_pgd_l2_attack),
                 ("pgd-linf", erms.compute_pgd_linf_attack),
             )
-            for alpha in (1e-2, 1e-1, 1e-0)
+            for alpha in (1e-3, 1e-2, 1e-1)
         ),
     ):
         _get_attacks(net, samples, attack, f"./out/{name}")

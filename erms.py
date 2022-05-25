@@ -21,7 +21,7 @@ def _compute_attribution(net, x, attribution, *args, **kwargs):
     ).attributions(x)
 
 
-def compute_saliency_map(net, x):
+def compute_class_saliency(net, x):
     return _compute_attribution(net, x, InputAttribution)
 
 
@@ -35,7 +35,7 @@ def compute_integrated_gradients(net, x, baseline):
     )
 
 
-def compute_class_saliency_map(net, y_idx, baseline, n_steps=100):
+def compute_class_model(net, y_idx, baseline, n_steps=100):
     x, xs = baseline.clone().detach(), []
     x.requires_grad = True
     opt = torch.optim.Adam([x], lr=5e-3, weight_decay=1e-5)
@@ -91,8 +91,8 @@ def compute_pgd_l1_attack(
     net,
     x,
     y,
-    eps=20.0,
-    alpha=0.1,
+    eps=0.2,
+    alpha=1e-2,
     n_steps=10,
 ):
     def clip(d):
@@ -115,8 +115,8 @@ def compute_pgd_l2_attack(
     net,
     x,
     y,
-    eps=0.5,
-    alpha=0.1,
+    eps=0.4,
+    alpha=1e-2,
     n_steps=10,
 ):
     def clip(d):
@@ -132,18 +132,10 @@ def compute_pgd_linf_attack(
     x,
     y,
     eps=1e-2,
-    alpha=0.1,
+    alpha=1e-2,
     n_steps=10,
 ):
-    return _compute_pgd_attack(
-        net,
-        x,
-        y,
-        alpha,
-        n_steps,
-        lambda d: torch.clamp(
-            d,
-            min=-eps,
-            max=eps,
-        ),
-    )
+    def clip(d):
+        return torch.clamp(d, min=-eps, max=eps)
+
+    return _compute_pgd_attack(net, x, y, alpha, n_steps, clip)
