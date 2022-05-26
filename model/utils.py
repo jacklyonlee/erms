@@ -24,9 +24,5 @@ class FurthestPointSampling(Function):
         ctx.mark_non_differentiable(out)
         return out
 
-    @staticmethod
-    def backward(ctx, grad_out):
-        return ()
-
 
 furthest_point_sample = FurthestPointSampling.apply
