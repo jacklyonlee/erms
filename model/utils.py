@@ -1,6 +1,7 @@
 import glob
 import os.path as osp
 
+import torch
 from torch.autograd import Function
 from torch.utils.cpp_extension import load
 
@@ -19,7 +20,7 @@ _ext = load(
 
 class FurthestPointSampling(Function):
     @staticmethod
-    def forward(ctx, xyz, npoint):
+    def forward(ctx, xyz: torch.Tensor, npoint: int) -> torch.Tensor:
         out = _ext.furthest_point_sampling(xyz, npoint)
         ctx.mark_non_differentiable(out)
         return out

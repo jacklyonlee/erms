@@ -1,7 +1,9 @@
 from functools import partial
+from typing import Callable, Iterable
 
 import numpy as np
 import torch
+import torch.nn as nn
 from sklearn import metrics
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -12,14 +14,14 @@ from model.pointmlp import PointMLP
 from plot import animate_pc, plot_pc
 
 
-def _get_pretrained_model():
+def _get_pretrained_model() -> nn.Module:
     ckpt = torch.load("out/pointmlp.pth")
     net = PointMLP().cuda()
     net.load_state_dict(ckpt)
     return net.eval()
 
 
-def _get_loader(batch_size=16):
+def _get_loader(batch_size: int = 16) -> DataLoader:
     return DataLoader(
         ModelNet40(partition="test", num_points=1024),
         num_workers=2,
@@ -30,7 +32,12 @@ def _get_loader(batch_size=16):
 
 
 @torch.no_grad()
-def _get_postive_samples(net, loader, include_classes, N=16):
+def _get_postive_samples(
+    net: nn.Module,
+    loader: DataLoader,
+    include_classes: set[str],
+    N: int = 16,
+) -> Iterable:
     samples = []
     for x, y in loader:
         x, y = x.cuda(), y.squeeze().cuda()
@@ -50,7 +57,10 @@ def _get_postive_samples(net, loader, include_classes, N=16):
                     return samples
 
 
-def _get_baseline(name, shape=(1, 1024, 3)):
+def _get_baseline(
+    name: str,
+    shape: tuple[int, ...] = (1, 1024, 3),
+) -> torch.Tensor:
     return {
         "zeros": lambda: torch.zeros(shape),
         "randn": lambda: torch.randn(*shape) / 4,
@@ -68,7 +78,12 @@ def _get_baseline(name, shape=(1, 1024, 3)):
     }[name]().cuda()
 
 
-def _get_attributions(net, samples, func, filename):
+def _get_attributions(
+    net: nn.Module,
+    samples: Iterable,
+    func: Callable,
+    filename: str,
+):
     for i, (x, _, c) in enumerate(tqdm(samples)):
         a = func(net, x.cuda()).cpu()
         plot_pc(
@@ -78,7 +93,11 @@ def _get_attributions(net, samples, func, filename):
         )
 
 
-def _get_class_models(net, classes, filename):
+def _get_class_models(
+    net: nn.Module,
+    classes: set[str],
+    filename: str,
+):
     for c in classes:
         xs = erms.compute_class_model(
             net,
@@ -88,7 +107,12 @@ def _get_class_models(net, classes, filename):
         animate_pc(xs, f"{filename}-{c}")
 
 
-def _get_attacks(net, samples, func, filename):
+def _get_attacks(
+    net: nn.Module,
+    samples: Iterable,
+    func: Callable,
+    filename: str,
+):
     for i, (x, y, c) in enumerate(tqdm(samples)):
         x, y = x.cuda(), y.cuda()
         x_adv = func(net, x, y)
@@ -106,7 +130,9 @@ def _get_attacks(net, samples, func, filename):
             )
 
 
-def _eval_attacks(net, loader, func):
+def _eval_attacks(
+    net: nn.Module, loader: DataLoader, func: Callable
+) -> tuple[float, float, float, float, float, float]:
     Y, P, P_adv = [], [], []
     norms = ((0, []), (1, []), (2, []), (np.inf, []))
     for x, y in tqdm(loader):
@@ -137,7 +163,7 @@ def main():
     samples = _get_postive_samples(
         net,
         loader,
-        ("airplane", "chair", "table"),
+        {"airplane", "chair", "table"},
     )
 
     # compute & save saliency maps
@@ -149,7 +175,7 @@ def main():
     )
     _get_class_models(
         net,
-        ("airplane", "chair", "table"),
+        {"airplane", "chair", "table"},
         "./out/class-model",
     )
 

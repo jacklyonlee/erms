@@ -1,11 +1,15 @@
+from typing import Optional, Sequence
+
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FuncAnimation, PillowWriter
+from matplotlib.axes import Axes
 from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d import Axes3D
 
 
-def _create_fig(lim=0.8):
+def _create_fig(lim: float = 0.8) -> tuple[Figure, Axes]:
     fig = plt.figure(figsize=(10, 10))
     ax = plt.gca(projection=Axes3D.name)
     ax.set_xlim(-lim, lim)
@@ -22,7 +26,7 @@ def _create_fig(lim=0.8):
     return fig, ax
 
 
-def _save_fig(filename):
+def _save_fig(filename: str):
     plt.savefig(
         f"{filename}.png",
         bbox_inches="tight",
@@ -30,7 +34,11 @@ def _save_fig(filename):
     plt.close()
 
 
-def plot_pc(x, filename, mask=None):
+def plot_pc(
+    x: np.ndarray,
+    filename: str,
+    mask: Optional[np.ndarray] = None,
+):
     _, ax = _create_fig()
     ax.scatter(
         x[:, 2],
@@ -47,7 +55,7 @@ def plot_pc(x, filename, mask=None):
     _save_fig(filename)
 
 
-def animate_pc(xs, filename):
+def animate_pc(xs: Sequence[np.ndarray], filename: str):
     fig, ax = _create_fig()
 
     def update(x):

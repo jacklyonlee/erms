@@ -1,3 +1,5 @@
+from typing import Sequence
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -5,7 +7,10 @@ import torch.nn.functional as F
 from .utils import furthest_point_sample
 
 
-def square_distance(src, dst):
+def square_distance(
+    src: torch.Tensor,
+    dst: torch.Tensor,
+) -> torch.Tensor:
     B, N, _ = src.shape
     _, M, _ = dst.shape
     dist = -2 * torch.matmul(src, dst.permute(0, 2, 1))
@@ -14,7 +19,10 @@ def square_distance(src, dst):
     return dist
 
 
-def index_points(p, idx):
+def index_points(
+    p: torch.Tensor,
+    idx: torch.Tensor,
+) -> torch.Tensor:
     view_shape = list(idx.shape)
     view_shape[1:] = [1] * (len(view_shape) - 1)
     repeat_shape = list(idx.shape)
@@ -29,11 +37,15 @@ def index_points(p, idx):
     return new_p
 
 
-def knn_point(nsample, xyz, new_xyz):
+def knn_point(
+    n_samples: int,
+    xyz: torch.Tensor,
+    new_xyz: torch.Tensor,
+) -> torch.Tensor:
     sqrdists = square_distance(new_xyz, xyz)
     _, group_idx = torch.topk(
         sqrdists,
-        nsample,
+        n_samples,
         dim=-1,
         largest=False,
         sorted=False,
@@ -44,10 +56,10 @@ def knn_point(nsample, xyz, new_xyz):
 class LocalGrouper(nn.Module):
     def __init__(
         self,
-        channel,
-        groups,
-        kneighbors,
-        normalize="center",
+        channel: int,
+        groups: int,
+        kneighbors: int,
+        normalize: str = "center",
         **kwargs,
     ):
         super().__init__()
@@ -58,7 +70,11 @@ class LocalGrouper(nn.Module):
         self.affine_alpha = nn.Parameter(torch.ones([1, 1, 1, channel]))
         self.affine_beta = nn.Parameter(torch.zeros([1, 1, 1, channel]))
 
-    def forward(self, xyz, p):
+    def forward(
+        self,
+        xyz: torch.Tensor,
+        p: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         B, N, C = xyz.shape
         S = self.groups
         xyz = xyz.contiguous()  # xyz [btach, p, xyz]
@@ -74,7 +90,11 @@ class LocalGrouper(nn.Module):
         elif self.normalize == "anchor":
             mean = new_p.unsqueeze(dim=-2)  # [B, npoint, 1, d+3]
         std = (
-            torch.std((grouped_p - mean).reshape(B, -1), dim=-1, keepdim=True)
+            torch.std(
+                (grouped_p - mean).reshape(B, -1),
+                dim=-1,
+                keepdim=True,
+            )
             .unsqueeze(dim=-1)
             .unsqueeze(dim=-1)
         )
@@ -84,7 +104,12 @@ class LocalGrouper(nn.Module):
         new_p = torch.cat(
             [
                 grouped_p,
-                new_p.view(B, S, 1, -1).repeat(1, 1, self.kneighbors, 1),
+                new_p.view(B, S, 1, -1).repeat(
+                    1,
+                    1,
+                    self.kneighbors,
+                    1,
+                ),
             ],
             dim=-1,
         )
@@ -94,10 +119,10 @@ class LocalGrouper(nn.Module):
 class ConvBNReLU1D(nn.Module):
     def __init__(
         self,
-        in_channels,
-        out_channels,
-        kernel_size=1,
-        bias=True,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int = 1,
+        bias: bool = True,
     ):
         super().__init__()
         self.act = nn.ReLU(inplace=True)
@@ -119,10 +144,10 @@ class ConvBNReLU1D(nn.Module):
 class ConvBNReLURes1D(nn.Module):
     def __init__(
         self,
-        channel,
-        kernel_size=1,
-        res_expansion=1.0,
-        bias=True,
+        channel: int,
+        kernel_size: int = 1,
+        res_expansion: float = 1.0,
+        bias: bool = True,
     ):
         super().__init__()
         self.act = nn.ReLU(inplace=True)
@@ -146,18 +171,18 @@ class ConvBNReLURes1D(nn.Module):
             nn.BatchNorm1d(channel),
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.act(self.net2(self.net1(x)) + x)
 
 
 class PreExtraction(nn.Module):
     def __init__(
         self,
-        channels,
-        out_channels,
-        blocks=1,
-        res_expansion=1,
-        bias=True,
+        channels: int,
+        out_channels: int,
+        blocks: int = 1,
+        res_expansion: float = 1.0,
+        bias: bool = True,
     ):
         super().__init__()
         in_channels = 2 * channels
@@ -177,7 +202,7 @@ class PreExtraction(nn.Module):
             )
         self.operation = nn.Sequential(*operation)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, N, S, D = x.size()  # torch.Size([32, 512, 32, 6])
         x = x.permute(0, 1, 3, 2)
         x = x.reshape(-1, D, S)
@@ -191,10 +216,10 @@ class PreExtraction(nn.Module):
 class PosExtraction(nn.Module):
     def __init__(
         self,
-        channels,
-        blocks=1,
-        res_expansion=1,
-        bias=True,
+        channels: int,
+        blocks: int = 1,
+        res_expansion: float = 1.0,
+        bias: bool = True,
     ):
         super().__init__()
         operation = []
@@ -208,24 +233,24 @@ class PosExtraction(nn.Module):
             )
         self.operation = nn.Sequential(*operation)
 
-    def forward(self, x):  # [b, d, g]
+    def forward(self, x: torch.Tensor) -> torch.Tensor:  # [b, d, g]
         return self.operation(x)
 
 
 class PointMLP(nn.Module):
     def __init__(
         self,
-        points=1024,
-        class_num=40,
-        embed_dim=64,
-        res_expansion=1.0,
-        bias=False,
-        normalize="anchor",
-        dim_expansion=(2, 2, 2, 2),
-        pre_blocks=(2, 2, 2, 2),
-        pos_blocks=(2, 2, 2, 2),
-        k_neighbors=(24, 24, 24, 24),
-        reducers=(2, 2, 2, 2),
+        points: int = 1024,
+        class_num: int = 40,
+        embed_dim: int = 64,
+        res_expansion: float = 1.0,
+        bias: bool = False,
+        normalize: str = "anchor",
+        dim_expansion: Sequence[int] = (2, 2, 2, 2),
+        pre_blocks: Sequence[int] = (2, 2, 2, 2),
+        pos_blocks: Sequence[int] = (2, 2, 2, 2),
+        k_neighbors: Sequence[int] = (24, 24, 24, 24),
+        reducers: Sequence[int] = (2, 2, 2, 2),
         **kwargs,
     ):
         super().__init__()
@@ -293,7 +318,7 @@ class PointMLP(nn.Module):
             nn.Linear(256, self.class_num),
         )
 
-    def forward(self, xyz):
+    def forward(self, xyz: torch.Tensor) -> torch.Tensor:
         x = xyz.permute(0, 2, 1)
         x = self.embedding(x)  # B,D,N
         for i in range(self.stages):

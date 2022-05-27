@@ -21,7 +21,7 @@ def download():
         os.system("rm %s" % (zipfile))
 
 
-def load_data(partition):
+def load_data(partition: str) -> tuple[np.ndarray, np.ndarray]:
     download()
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -41,36 +41,6 @@ def load_data(partition):
     all_data = np.concatenate(all_data, axis=0)
     all_label = np.concatenate(all_label, axis=0)
     return all_data, all_label
-
-
-def random_point_dropout(pc, max_dropout_ratio=0.875):
-    """batch_pc: BxNx3"""
-    dropout_ratio = np.random.random() * max_dropout_ratio  # 0~0.875
-    drop_idx = np.where(np.random.random(pc.shape[0]) <= dropout_ratio)[0]
-
-    if len(drop_idx) > 0:
-        pc[drop_idx, :] = pc[0, :]  # set to the first point
-    return pc
-
-
-def translate_pointcloud(pointcloud):
-    xyz1 = np.random.uniform(low=2.0 / 3.0, high=3.0 / 2.0, size=[3])
-    xyz2 = np.random.uniform(low=-0.2, high=0.2, size=[3])
-
-    translated_pointcloud = np.add(
-        np.multiply(
-            pointcloud,
-            xyz1,
-        ),
-        xyz2,
-    ).astype("float32")
-    return translated_pointcloud
-
-
-def jitter_pointcloud(pointcloud, sigma=0.01, clip=0.02):
-    N, C = pointcloud.shape
-    pointcloud += np.clip(sigma * np.random.randn(N, C), -1 * clip, clip)
-    return pointcloud
 
 
 class ModelNet40(Dataset):
@@ -118,18 +88,15 @@ class ModelNet40(Dataset):
         "xbox",
     )
 
-    def __init__(self, num_points, partition="train"):
+    def __init__(self, num_points: int, partition: str = "test"):
         self.data, self.label = load_data(partition)
         self.num_points = num_points
         self.partition = partition
 
-    def __getitem__(self, item):
-        pointcloud = self.data[item][: self.num_points]
-        label = self.label[item]
-        if self.partition == "train":
-            pointcloud = translate_pointcloud(pointcloud)
-            np.random.shuffle(pointcloud)
+    def __getitem__(self, idx: int) -> tuple[np.ndarray, np.ndarray]:
+        pointcloud = self.data[idx][: self.num_points]
+        label = self.label[idx]
         return pointcloud, label
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.data.shape[0]
